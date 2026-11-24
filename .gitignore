@@ -1,0 +1,7 @@
+target/
+data/
+.env
+.idea/
+*.iml
+postman/*results*.json
+*results.xml

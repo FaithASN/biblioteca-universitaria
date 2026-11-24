@@ -1,0 +1,891 @@
+{
+  "info": {
+    "name": "Biblioteca universitaria · API REST",
+    "description": "Ejecutar en orden sobre una instancia de pruebas. Definir adminEmail y adminPassword en el entorno; baseUrl predeterminado http://localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminEmail",
+      "value": ""
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "correoUsuario",
+      "value": ""
+    },
+    {
+      "key": "isbn",
+      "value": ""
+    },
+    {
+      "key": "usuarioId",
+      "value": ""
+    },
+    {
+      "key": "libroId",
+      "value": ""
+    },
+    {
+      "key": "prestamoId",
+      "value": ""
+    },
+    {
+      "key": "tokenUsuario",
+      "value": ""
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 · Registro público",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/auth/registro",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Estudiante\",\n  \"email\": \"{{correoUsuario}}\",\n  \"clave\": \"Clave-Academica-2026!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const sufijo = Date.now().toString() + Math.floor(Math.random() * 1000).toString().padStart(3, \"0\");",
+              "const baseIsbn = \"978\" + sufijo.slice(-9);",
+              "const suma = [...baseIsbn].reduce((total, cifra, i) => total + Number(cifra) * (i % 2 ? 3 : 1), 0);",
+              "pm.collectionVariables.set(\"isbn\", baseIsbn + ((10 - suma % 10) % 10));",
+              "pm.collectionVariables.set(\"correoUsuario\", \"estudiante-\" + sufijo + \"@universidad.test\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Guarda id\", () => { const valor = pm.response.json().id; pm.expect(valor).to.exist; pm.collectionVariables.set(\"usuarioId\", valor); });",
+              "pm.test(\"Rol asignado\", () => { pm.expect(pm.response.json().roles).to.eql([\"USUARIO\"]); });",
+              "pm.test(\"Respuesta sin contraseña\", () => { pm.expect(pm.response.json()).not.to.have.property('claveHash'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 · Correo duplicado",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/auth/registro",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Estudiante\",\n  \"email\": \"{{correoUsuario}}\",\n  \"clave\": \"Clave-Academica-2026!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 · Credenciales erróneas",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{correoUsuario}}\",\n  \"clave\": \"incorrecta\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 · Login USUARIO",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{correoUsuario}}\",\n  \"clave\": \"Clave-Academica-2026!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Guarda accessToken\", () => { const valor = pm.response.json().accessToken; pm.expect(valor).to.exist; pm.collectionVariables.set(\"tokenUsuario\", valor); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 · Login ADMIN",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoLoginAdmin}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set(\"cuerpoLoginAdmin\", JSON.stringify({",
+              "  email: pm.variables.get(\"adminEmail\"),",
+              "  clave: pm.variables.get(\"adminPassword\")",
+              "}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Guarda accessToken\", () => { const valor = pm.response.json().accessToken; pm.expect(valor).to.exist; pm.collectionVariables.set(\"tokenAdmin\", valor); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 · Catálogo sin JWT",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/libros",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 · Perfil propio",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios/yo",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Cuenta autenticada\", () => { pm.expect(String(pm.response.json().id)).to.eql(String(pm.collectionVariables.get(\"usuarioId\"))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 · Listar cuentas",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/usuarios",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Incluye cuenta registrada\", () => { pm.expect(pm.response.json().contenido.map(u => String(u.id))).to.include(String(pm.collectionVariables.get('usuarioId'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 · Usuario no puede crear libro",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/libros",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"isbn\": \"{{isbn}}\",\n  \"titulo\": \"Fundamentos de sistemas\",\n  \"autor\": \"Lucía Vargas\",\n  \"ejemplares\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 · Rechazar libro incompleto",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/libros",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"isbn\": \"no-valido\",\n  \"ejemplares\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Errores por campo\", () => { pm.expect(pm.response.json().campos).to.include.keys('isbn', 'titulo', 'autor', 'ejemplares'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 · Registrar libro",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/libros",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"isbn\": \"{{isbn}}\",\n  \"titulo\": \"Fundamentos de sistemas\",\n  \"autor\": \"Lucía Vargas\",\n  \"ejemplares\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Guarda id\", () => { const valor = pm.response.json().id; pm.expect(valor).to.exist; pm.collectionVariables.set(\"libroId\", valor); });",
+              "pm.test(\"Inventario inicial\", () => { pm.expect(pm.response.json().disponibles).to.eql(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 · Buscar catálogo",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/libros?q=Fundamentos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Incluye libro creado\", () => { pm.expect(pm.response.json().contenido.map(l => String(l.id))).to.include(String(pm.collectionVariables.get('libroId'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 · Usuario no puede prestar",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": 1,\n  \"libroId\": 1,\n  \"dias\": 7\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 · Registrar préstamo",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"libroId\": {{libroId}},\n  \"dias\": 7\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Guarda id\", () => { const valor = pm.response.json().id; pm.expect(valor).to.exist; pm.collectionVariables.set(\"prestamoId\", valor); });",
+              "pm.test(\"Préstamo activo\", () => { pm.expect(pm.response.json().estado).to.eql(\"ACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 · Consultar disponibilidad agotada",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/libros/{{libroId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Inventario agotado\", () => { pm.expect(pm.response.json().disponibles).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 · Rechazar préstamo sin stock",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioId\": {{usuarioId}},\n  \"libroId\": {{libroId}},\n  \"dias\": 7\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 · Consultar préstamos como administrador",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/prestamos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Incluye el préstamo activo\", () => { pm.expect(pm.response.json().contenido.map(p => String(p.id))).to.include(String(pm.collectionVariables.get('prestamoId'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 · Usuario no puede ver todos los préstamos",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/prestamos",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 · Usuario no puede devolver",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos/{{prestamoId}}/devolucion",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 · Registrar devolución",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos/{{prestamoId}}/devolucion",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Préstamo devuelto\", () => { pm.expect(pm.response.json().estado).to.eql(\"DEVUELTO\"); });",
+              "pm.test(\"Registra fecha de devolución\", () => { pm.expect(pm.response.json().devueltoEn).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 · Rechazar segunda devolución",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/prestamos/{{prestamoId}}/devolucion",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 · Inventario restaurado",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/libros/{{libroId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Ejemplar restaurado\", () => { pm.expect(pm.response.json().disponibles).to.eql(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 · Historial propio",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/prestamos/mis",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Un único préstamo propio\", () => { pm.expect(pm.response.json().total).to.eql(1); });",
+              "pm.test(\"Estado final\", () => { pm.expect(pm.response.json().contenido[0].estado).to.eql(\"DEVUELTO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 · Libro inexistente",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/libros/9223372036854775807",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenUsuario}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
